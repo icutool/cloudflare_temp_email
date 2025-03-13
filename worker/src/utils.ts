@@ -1,17 +1,36 @@
 import { Context } from "hono";
 import { createMimeMessage } from "mimetext";
-import { HonoCustomType, UserRole } from "./types";
-import { User } from "telegraf/types";
+import { HonoCustomType, UserRole, AnotherWorker } from "./types";
 
-export const getJsonSetting = async (
+export const getJsonObjectValue = <T = any>(
+    value: string | any
+): T | null => {
+    if (value == undefined || value == null) {
+        return null;
+    }
+    if (typeof value === "object") {
+        return value as T;
+    }
+    if (typeof value !== "string") {
+        return null;
+    }
+    try {
+        return JSON.parse(value) as T;
+    } catch (e) {
+        console.error(`GetJsonValue: Failed to parse ${value}`, e);
+    }
+    return null;
+}
+
+export const getJsonSetting = async <T = any>(
     c: Context<HonoCustomType>, key: string
-): Promise<any> => {
+): Promise<T | null> => {
     const value = await getSetting(c, key);
     if (!value) {
         return null;
     }
     try {
-        return JSON.parse(value);
+        return JSON.parse(value) as T;
     } catch (e) {
         console.error(`GetJsonSetting: Failed to parse ${key}`, e);
     }
@@ -50,6 +69,15 @@ export const getStringValue = (value: any): string => {
     return "";
 }
 
+export const getSplitStringListValue = (
+    value: any, demiliter: string = ","
+): string[] => {
+    const valueToSplit = getStringValue(value);
+    return valueToSplit.split(demiliter)
+        .map((item: string) => item.trim())
+        .filter((item: string) => item.length > 0);
+}
+
 export const getBooleanValue = (
     value: boolean | string | any
 ): boolean => {
@@ -59,7 +87,6 @@ export const getBooleanValue = (
     if (typeof value === "string") {
         return value === "true";
     }
-    console.error(`Failed to parse boolean value: ${value}`);
     return false;
 }
 
@@ -99,9 +126,11 @@ export const getStringArray = (
 }
 
 export const getDefaultDomains = (c: Context<HonoCustomType>): string[] => {
+    if (c.env.DEFAULT_DOMAINS == undefined || c.env.DEFAULT_DOMAINS == null) {
+        return getDomains(c);
+    }
     const domains = getStringArray(c.env.DEFAULT_DOMAINS);
-    if (domains && domains.length > 0) return domains;
-    return getDomains(c);
+    return domains || getDomains(c);
 }
 
 export const getDomains = (c: Context<HonoCustomType>): string[] => {
@@ -134,6 +163,22 @@ export const getUserRoles = (c: Context<HonoCustomType>): UserRole[] => {
         }
     }
     return c.env.USER_ROLES;
+}
+
+export const getAnotherWorkerList = (c: Context<HonoCustomType>): AnotherWorker[] => {
+    if (!c.env.ANOTHER_WORKER_LIST) {
+        return [];
+    }
+    // check if ANOTHER_WORKER_LIST is an array, if not use json.parse
+    if (!Array.isArray(c.env.ANOTHER_WORKER_LIST)) {
+        try {
+            return JSON.parse(c.env.ANOTHER_WORKER_LIST);
+        } catch (e) {
+            console.error("Failed to parse ANOTHER_WORKER_LIST", e);
+            return [];
+        }
+    }
+    return c.env.ANOTHER_WORKER_LIST;
 }
 
 export const getPasswords = (c: Context<HonoCustomType>): string[] => {

@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 
-import { getDomains, getPasswords, getBooleanValue, getIntValue, getStringArray, getDefaultDomains } from './utils';
+import { getDomains, getPasswords, getBooleanValue, getIntValue, getStringArray, getDefaultDomains, getStringValue } from './utils';
 import { CONSTANTS } from './constants';
 import { HonoCustomType } from './types';
 import { isS3Enabled } from './mails_api/s3_attachment';
@@ -17,7 +17,9 @@ api.get('/open_api/settings', async (c) => {
     }
     return c.json({
         "title": c.env.TITLE,
-        "prefix": c.env.PREFIX,
+        "announcement": getStringValue(c.env.ANNOUNCEMENT),
+        "prefix": getStringValue(c.env.PREFIX),
+        "addressRegex": getStringValue(c.env.ADDRESS_REGEX),
         "minAddressLen": getIntValue(c.env.MIN_ADDRESS_LEN, 1),
         "maxAddressLen": getIntValue(c.env.MAX_ADDRESS_LEN, 30),
         "defaultDomains": getDefaultDomains(c),
@@ -26,6 +28,7 @@ api.get('/open_api/settings', async (c) => {
         "needAuth": needAuth,
         "adminContact": c.env.ADMIN_CONTACT,
         "enableUserCreateEmail": getBooleanValue(c.env.ENABLE_USER_CREATE_EMAIL),
+        "disableAnonymousUserCreateEmail": getBooleanValue(c.env.DISABLE_ANONYMOUS_USER_CREATE_EMAIL),
         "enableUserDeleteEmail": getBooleanValue(c.env.ENABLE_USER_DELETE_EMAIL),
         "enableAutoReply": getBooleanValue(c.env.ENABLE_AUTO_REPLY),
         "enableIndexAbout": getBooleanValue(c.env.ENABLE_INDEX_ABOUT),
@@ -34,6 +37,8 @@ api.get('/open_api/settings', async (c) => {
         "enableWebhook": getBooleanValue(c.env.ENABLE_WEBHOOK),
         "isS3Enabled": isS3Enabled(c),
         "version": CONSTANTS.VERSION,
+        "showGithub": !getBooleanValue(c.env.DISABLE_SHOW_GITHUB),
+        "disableAdminPasswordCheck": getBooleanValue(c.env.DISABLE_ADMIN_PASSWORD_CHECK)
     });
 })
 

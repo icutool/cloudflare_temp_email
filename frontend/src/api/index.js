@@ -1,10 +1,13 @@
 import { useGlobalState } from '../store'
+import { h } from 'vue'
 import axios from 'axios'
+
+import i18n from '../i18n'
 
 const API_BASE = import.meta.env.VITE_API_BASE || "";
 const {
     loading, auth, jwt, settings, openSettings,
-    userOpenSettings, userSettings,
+    userOpenSettings, userSettings, announcement,
     showAuth, adminAuth, showAdminAuth, userJwt
 } = useGlobalState();
 
@@ -21,7 +24,9 @@ const apiFetch = async (path, options = {}) => {
             method: options.method || 'GET',
             data: options.body || null,
             headers: {
+                'x-lang': i18n.global.locale.value,
                 'x-user-token': userJwt.value,
+                'x-user-access-token': userSettings.value.access_token,
                 'x-custom-auth': auth.value,
                 'x-admin-auth': adminAuth.value,
                 'Authorization': `Bearer ${jwt.value}`,
@@ -30,14 +35,12 @@ const apiFetch = async (path, options = {}) => {
         });
         if (response.status === 401 && path.startsWith("/admin")) {
             showAdminAuth.value = true;
-            throw new Error("Unauthorized, your admin password is wrong")
         }
         if (response.status === 401 && openSettings.value.auth) {
             showAuth.value = true;
-            throw new Error("Unauthorized, you access password is wrong")
         }
         if (response.status >= 300) {
-            throw new Error(`${response.status} ${response.data}` || "error");
+            throw new Error(`[${response.status}]: ${response.data}` || "error");
         }
         const data = response.data;
         return data;
@@ -51,11 +54,15 @@ const apiFetch = async (path, options = {}) => {
     }
 }
 
-const getOpenSettings = async (message) => {
+const getOpenSettings = async (message, notification) => {
     try {
         const res = await api.fetch("/open_api/settings");
         const domainLabels = res["domainLabels"] || [];
+        if (res["domains"]?.length < 1) {
+            message.error("No domains found, please check your worker settings");
+        }
         Object.assign(openSettings.value, {
+            ...res,
             title: res["title"] || "",
             prefix: res["prefix"] || "",
             minAddressLen: res["minAddressLen"] || 1,
@@ -70,6 +77,7 @@ const getOpenSettings = async (message) => {
             }),
             adminContact: res["adminContact"] || "",
             enableUserCreateEmail: res["enableUserCreateEmail"] || false,
+            disableAnonymousUserCreateEmail: res["disableAnonymousUserCreateEmail"] || false,
             enableUserDeleteEmail: res["enableUserDeleteEmail"] || false,
             enableAutoReply: res["enableAutoReply"] || false,
             enableIndexAbout: res["enableIndexAbout"] || false,
@@ -81,8 +89,20 @@ const getOpenSettings = async (message) => {
         if (openSettings.value.needAuth) {
             showAuth.value = true;
         }
+        if (openSettings.value.announcement && openSettings.value.announcement != announcement.value) {
+            announcement.value = openSettings.value.announcement;
+            notification.info({
+                content: () => {
+                    return h("div", {
+                        innerHTML: announcement.value
+                    });
+                }
+            });
+        }
     } catch (error) {
         message.error(error.message || "error");
+    } finally {
+        openSettings.value.fetched = true;
     }
 }
 
@@ -109,6 +129,8 @@ const getUserOpenSettings = async (message) => {
         Object.assign(userOpenSettings.value, res);
     } catch (error) {
         message.error(error.message || "fetch settings failed");
+    } finally {
+        userOpenSettings.value.fetched = true;
     }
 }
 
@@ -118,7 +140,7 @@ const getUserSettings = async (message) => {
         const res = await api.fetch("/user_api/settings")
         Object.assign(userSettings.value, res)
     } catch (error) {
-        message.error(error.message || "error");
+        message?.error(error.message || "error");
     } finally {
         userSettings.value.fetched = true;
     }

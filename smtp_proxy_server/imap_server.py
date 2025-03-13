@@ -121,6 +121,7 @@ class SimpleMailbox:
             f"{settings.proxy_url}/api/mails?limit={limit}&offset={start - 1}",
             headers={
                 "Authorization": f"Bearer {self.password}",
+                "x-custom-auth": f"{settings.basic_password}",
                 "Content-Type": "application/json"
             }
         )
@@ -134,7 +135,7 @@ class SimpleMailbox:
             self.message_count = res.json()["count"]
         return [
             (start + uid, SimpleMessage(start + uid, parse_email(item["raw"])))
-            for uid, item in enumerate(reversed(res.json()["results"]))
+            for uid, item in enumerate(res.json()["results"])
         ]
 
     def fetchSENT(self, messages):
@@ -147,6 +148,7 @@ class SimpleMailbox:
             f"{settings.proxy_url}/api/sendbox?limit={limit}&offset={start - 1}",
             headers={
                 "Authorization": f"Bearer {self.password}",
+                "x-custom-auth": f"{settings.basic_password}",
                 "Content-Type": "application/json"
             }
         )
